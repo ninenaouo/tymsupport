@@ -1,0 +1,17 @@
+
+name: test-synology-chat
+
+on:
+  workflow_dispatch:   # 手動執行用
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send test message to Synology Chat
+        run: |
+          curl -sS -X POST "${{ secrets.SHACHI_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": "🧪 測試成功：GitHub Actions 已傳送 Synology Chat 訊息"
+            }'
