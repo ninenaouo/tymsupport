@@ -8,7 +8,11 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Send test message to Synology Chat
+      - name: Debug call
         run: |
-          curl -X POST "${{ secrets.SHACHI_TOKEN}}" 'payload={"text": "This is a test"}'
-          
+          curl -sS -i -X POST "$SYNO_CHAT_URL" \
+          -H "Content-Type: application/json" \
+          -d '{"text":"🧪 test"}' \
+          -w "\nHTTP_CODE:%{http_code}\n"
+    env:
+      SYNO_CHAT_URL: ${{ secrets.SHACHI_TOKEN }}
