@@ -15,231 +15,234 @@ function testok(){
   */
 
 
-  var origin =  document.getElementById("raintable").innerHTML;
+  var origin = document.getElementById("raintable").innerHTML;
+  var RAIN_REFRESH_MS = 5 * 60 * 1000;
+  var rainAlertIntervalMinutes = 5;
+  var rainOverThreshold = false;
+  var lastRainAlertAt = 0;
+  var rainAlertAudio = new Audio("./audio/rain-alert.mp3");
+  var rainTestAudio = new Audio("./audio/rain-alert.mp3");
+
+  rainAlertAudio.preload = "auto";
+  rainTestAudio.preload = "auto";
+
+  var rainStations = [
+    { id: "466920", station: "A1台北車站" },
+    { id: "C0AI30", station: "A2三重站" },
+    { id: "C0ACA0", station: "A3新北產業園區站至A6泰山貴和站" },
+    { id: "C0C680", station: "A7體育大學站" },
+    { id: "C0AH50", station: "A8長庚醫院站、A9林口站" },
+    { id: "C0C620", station: "A10山鼻站至A14a機場旅館站" },
+    { id: "CAC060", station: "A15大園站、A16橫山站" },
+    { id: "C2C590", station: "A15大園站、A16橫山站" },
+    { id: "C0C700", station: "A17領航站至A22老街溪站" }
+  ];
+
   function onLoadAll() {
-getRain();
-getWeather();
-getLittle();
-
+    initRainAlertControls();
+    getRain();
+    getWeather();
+    getLittle();
   }
-function getRain() {
-  var url="https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/O-A0002-001?Authorization=CWA-687F5BDC-9EA4-40C3-A8D2-9633373CFCF2&downloadType=WEB&format=JSON";
-  fetch(url)
-  .then((response) => {
-      return response.json()
-      //return response.text()
-  }).then((myJson) => {
 
-  
+  function initRainAlertControls() {
+    if (document.getElementById("rain-alert-controls")) return;
 
-    document.getElementById("raintable").innerHTML = origin ;
-    
-    var obsDateTime = myJson.cwaopendata.dataset.Station[0].ObsTime.DateTime;
-    var taiwanTime = new Intl.DateTimeFormat("zh-TW", {
-      timeZone: "Asia/Taipei",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false
-    }).format(new Date(obsDateTime));
-    document.getElementById("datatime").innerHTML = "資料點時間: " + taiwanTime + "（台灣時間）";
-    var stationIds = ["","","",""];
-    for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-       if(myJson.cwaopendata.dataset.Station[i].StationId=='466920'){
-        var myresult = 
-        `
-        <tr>
-          <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-          <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-          <td>466920</td>
-          <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-          <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-          <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-          <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-          <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-          <td>A1台北車站</td>
-        </tr>
-        
-        `;
-        document.getElementById("raintable").innerHTML += myresult;
-        
-       }
-      }
-      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-        if(myJson.cwaopendata.dataset.Station[i].StationId=='C0AI30'){
-          var myresult = 
-          `
-          <tr>
-            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-            <td>C0AI30</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-            <td>A2三重站</td>
-          </tr>
-          
-          `;
-          document.getElementById("raintable").innerHTML += myresult;
+    var datatime = document.getElementById("datatime");
+    var panel = document.createElement("div");
+    panel.id = "rain-alert-controls";
+    panel.style.cssText = "margin:10px 0 14px 0;padding:12px;border:1px solid #ddd;border-radius:8px;background:#fff;";
+    panel.innerHTML =
+      '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">' +
+      '<strong>雨量警報：</strong>' +
+      '<label style="margin:0;">提醒間隔（分鐘） ' +
+      '<input id="rain-alert-minutes" type="number" min="1" max="120" value="5" style="width:75px;">' +
+      '</label>' +
+      '<button id="rain-alert-apply" type="button" class="btn btn-primary btn-sm">套用</button>' +
+      '<button id="rain-alert-stop" type="button" class="btn btn-danger btn-sm">停止目前提示音</button>' +
+      '<button id="rain-alert-test" type="button" class="btn btn-secondary btn-sm">提示音測試</button>' +
+      '<span id="rain-alert-status" style="font-weight:bold;">目前正常</span>' +
+      '</div>' +
+      '<div style="margin-top:6px;font-size:13px;color:#666;">雨量資料每 5 分鐘更新；任一測站 1 小時雨量 ≥ 40 mm 時，依設定間隔持續提醒。10 分鐘雨量 > 6.67 mm 與 1 小時雨量 ≥ 40 mm 會顯示紅字。</div>';
 
-        }
+    datatime.parentNode.insertBefore(panel, datatime.nextSibling);
+
+    document.getElementById("rain-alert-apply").addEventListener("click", function () {
+      var value = parseInt(document.getElementById("rain-alert-minutes").value, 10);
+      if (isNaN(value) || value < 1) value = 1;
+      if (value > 120) value = 120;
+      rainAlertIntervalMinutes = value;
+      document.getElementById("rain-alert-minutes").value = value;
+      updateRainAlertStatus("提醒間隔已設定為 " + value + " 分鐘");
+    });
+
+    document.getElementById("rain-alert-stop").addEventListener("click", function () {
+      stopRainAlertSound();
+      updateRainAlertStatus(
+        rainOverThreshold
+          ? "已停止目前提示音，雨量仍超標時會依設定時間再次提醒"
+          : "目前正常"
+      );
+    });
+
+    document.getElementById("rain-alert-test").addEventListener("click", function () {
+      var button = this;
+
+      if (!rainTestAudio.paused) {
+        rainTestAudio.pause();
+        rainTestAudio.currentTime = 0;
+        button.textContent = "提示音測試";
+        updateRainAlertStatus(rainOverThreshold ? "雨量超標監看中" : "測試音已停止");
+        return;
       }
 
-      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-        if(myJson.cwaopendata.dataset.Station[i].StationId=='C0ACA0'){
-          var myresult = 
-          `
-          <tr>
-            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-            <td>C0ACA0</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-            <td>A3新北產業園區站至A6泰山貴和站</td>
-          </tr>
-          
-          `;
-          document.getElementById("raintable").innerHTML += myresult;
+      rainTestAudio.currentTime = 0;
+      rainTestAudio.play().then(function () {
+        button.textContent = "關閉測試音";
+        updateRainAlertStatus("正在播放測試音");
+      }).catch(function () {
+        updateRainAlertStatus("瀏覽器阻擋音訊，請再次按提示音測試");
+      });
+    });
 
-        }
-      
-      }
-      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-        if(myJson.cwaopendata.dataset.Station[i].StationId=='C0C680'){
-          var myresult = 
-          `
-          <tr>
-            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-            <td>C0C680</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-            <td>A7體育大學站</td>
-          </tr>
-          
-          `;
-          document.getElementById("raintable").innerHTML += myresult;
+    rainTestAudio.addEventListener("ended", function () {
+      var button = document.getElementById("rain-alert-test");
+      if (button) button.textContent = "提示音測試";
+      updateRainAlertStatus(rainOverThreshold ? "雨量超標監看中" : "目前正常");
+    });
+  }
 
-        }
-      }
-      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-        if(myJson.cwaopendata.dataset.Station[i].StationId=='C0AH50'){
-          var myresult = 
-          `
-          <tr>
-            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-            <td>C0AH50</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-            <td>A8長庚醫院站、A9林口站</td>
-          </tr>
-          
-          `;
-          document.getElementById("raintable").innerHTML += myresult;
-        }
-      }
-      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-        if(myJson.cwaopendata.dataset.Station[i].StationId=='C0C620'){
-          var myresult = 
-          `
-          <tr>
-            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-            <td>C0C620</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-            <td>A10山鼻站至A14a機場旅館站</td>
-          </tr>
-          
-          `;
-          document.getElementById("raintable").innerHTML += myresult;
+  function updateRainAlertStatus(text) {
+    var element = document.getElementById("rain-alert-status");
+    if (!element) return;
+    element.textContent = text;
+    element.style.color = rainOverThreshold ? "#d00000" : "#333";
+  }
 
-        }
-      }
-      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-        if(myJson.cwaopendata.dataset.Station[i].StationId=='CAC060'){
-          var myresult = 
-          `
-          <tr>
-            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-            <td>CAC060</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-            <td>A15大園站、A16橫山站</td>
-          </tr>
-          
-          `;
-          document.getElementById("raintable").innerHTML += myresult;
+  function safeRainValue(value) {
+    var numberValue = Number(value);
+    return isNaN(numberValue) || numberValue <= 0 ? 0 : numberValue;
+  }
 
+  function rainCell(value, isAlert) {
+    return '<td' + (isAlert ? ' style="color:#d00000;font-weight:bold;"' : '') + '>' + value + '</td>';
+  }
+
+  function stopRainAlertSound() {
+    rainAlertAudio.pause();
+    rainAlertAudio.currentTime = 0;
+  }
+
+  function playRainAlertSound() {
+    rainAlertAudio.pause();
+    rainAlertAudio.currentTime = 0;
+
+    rainAlertAudio.play().then(function () {
+      lastRainAlertAt = Date.now();
+      updateRainAlertStatus("⚠ 時雨量達 40 mm 以上，提示音播放中");
+    }).catch(function () {
+      lastRainAlertAt = Date.now();
+      updateRainAlertStatus("⚠ 時雨量達 40 mm 以上，但瀏覽器阻擋自動播放，請先按一次提示音測試");
+    });
+  }
+
+  function checkRainAlertReminder() {
+    if (!rainOverThreshold) return;
+
+    var intervalMs = rainAlertIntervalMinutes * 60 * 1000;
+    if (!lastRainAlertAt || Date.now() - lastRainAlertAt >= intervalMs) {
+      playRainAlertSound();
+    }
+  }
+
+  function getRain() {
+    var url = "https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/O-A0002-001?Authorization=CWA-687F5BDC-9EA4-40C3-A8D2-9633373CFCF2&downloadType=WEB&format=JSON";
+
+    fetch(url)
+      .then(function (response) {
+        return response.json();
+      })
+      .then(function (myJson) {
+        document.getElementById("raintable").innerHTML = origin;
+
+        var stationData = myJson.cwaopendata.dataset.Station || [];
+
+        if (stationData.length > 0) {
+          var obsDateTime = stationData[0].ObsTime.DateTime;
+          var taiwanTime = new Intl.DateTimeFormat("zh-TW", {
+            timeZone: "Asia/Taipei",
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false
+          }).format(new Date(obsDateTime));
+
+          document.getElementById("datatime").innerHTML =
+            "資料點時間: " + taiwanTime + "（台灣時間）";
         }
-      
-      }
-      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-        if(myJson.cwaopendata.dataset.Station[i].StationId=='C2C590'){
-          var myresult = 
-          `
-          <tr>
-            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-            <td>C2C590</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-            <td>A15大園站、A16橫山站</td>
-          </tr>
-          
-          `;
-          document.getElementById("raintable").innerHTML += myresult;
+
+        var dataMap = {};
+        for (var i = 0; i < stationData.length; i++) {
+          dataMap[stationData[i].StationId] = stationData[i];
         }
-      }
-      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
-        if(myJson.cwaopendata.dataset.Station[i].StationId=='C0C700'){
-          var myresult = 
-          `
-          <tr>
-            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
-            <td>C0C700</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
-            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
-            <td>A17領航站至A22老街溪站</td>
-          </tr>
-          
-          `;
-          document.getElementById("raintable").innerHTML += myresult;
+
+        var anyOver40 = false;
+
+        for (var j = 0; j < rainStations.length; j++) {
+          var config = rainStations[j];
+          var data = dataMap[config.id];
+          if (!data) continue;
+
+          var ten = safeRainValue(data.RainfallElement.Past10Min.Precipitation);
+          var oneHour = safeRainValue(data.RainfallElement.Past1hr.Precipitation);
+          var threeHour = safeRainValue(data.RainfallElement.Past3hr.Precipitation);
+          var twelveHour = safeRainValue(data.RainfallElement.Past12hr.Precipitation);
+          var twentyFourHour = safeRainValue(data.RainfallElement.Past24hr.Precipitation);
+
+          if (oneHour >= 40) anyOver40 = true;
+
+          var row =
+            "<tr>" +
+            "<td>" + data.GeoInfo.CountyName + "</td>" +
+            "<td>" + data.StationName + "</td>" +
+            "<td>" + config.id + "</td>" +
+            rainCell(ten, ten > 6.67) +
+            rainCell(oneHour, oneHour >= 40) +
+            "<td>" + threeHour + "</td>" +
+            "<td>" + twelveHour + "</td>" +
+            "<td>" + twentyFourHour + "</td>" +
+            "<td>" + config.station + "</td>" +
+            "</tr>";
+
+          document.getElementById("raintable").innerHTML += row;
         }
-      }
-     
-  })
-  
-}
+
+        var wasOverThreshold = rainOverThreshold;
+        rainOverThreshold = anyOver40;
+
+        if (rainOverThreshold) {
+          updateRainAlertStatus("⚠ 有測站 1 小時雨量達 40 mm 以上");
+
+          if (!wasOverThreshold || !lastRainAlertAt) {
+            playRainAlertSound();
+          }
+        } else {
+          stopRainAlertSound();
+          lastRainAlertAt = 0;
+          updateRainAlertStatus("目前正常");
+        }
+      })
+      .catch(function (error) {
+        console.error("Rain data fetch failed:", error);
+        updateRainAlertStatus("雨量資料取得失敗");
+      });
+  }
+
+  setInterval(getRain, RAIN_REFRESH_MS);
+  setInterval(checkRainAlertReminder, 10000);
 
 function getWeather(){
 
@@ -370,7 +373,6 @@ setInterval("getLittle()",60000);
 
 setInterval("getWeather()",60000);
 
-setInterval("getRain()",60000);
 function getLittle(){
 var url1 = "https://opendata.cwa.gov.tw/fileapi/v1/opendataapi/F-C0032-010?Authorization=CWA-687F5BDC-9EA4-40C3-A8D2-9633373CFCF2&downloadType=WEB&format=JSON";
 fetch(url1)
