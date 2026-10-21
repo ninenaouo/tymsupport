@@ -34,7 +34,18 @@ function getRain() {
 
     document.getElementById("raintable").innerHTML = origin ;
     
-    document.getElementById("datatime").innerHTML = "資料點時間: "+myJson.cwaopendata.dataset.Station[0].ObsTime.DateTime ;
+    var obsDateTime = myJson.cwaopendata.dataset.Station[0].ObsTime.DateTime;
+    var taiwanTime = new Intl.DateTimeFormat("zh-TW", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    }).format(new Date(obsDateTime));
+    document.getElementById("datatime").innerHTML = "資料點時間: " + taiwanTime + "（台灣時間）";
     var stationIds = ["","","",""];
     for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
        if(myJson.cwaopendata.dataset.Station[i].StationId=='466920'){
