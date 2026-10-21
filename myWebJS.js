@@ -24,7 +24,9 @@ function testok(){
   var rainTestAudio = new Audio("./audio/rain-alert.mp3");
 
   rainAlertAudio.preload = "auto";
+  rainAlertAudio.loop = true;
   rainTestAudio.preload = "auto";
+  rainTestAudio.loop = false;
 
   var rainStations = [
     { id: "466920", station: "A1台北車站" },
@@ -131,6 +133,7 @@ function testok(){
   function stopRainAlertSound() {
     rainAlertAudio.pause();
     rainAlertAudio.currentTime = 0;
+    lastRainAlertAt = Date.now();
   }
 
   function playRainAlertSound() {
@@ -139,7 +142,7 @@ function testok(){
 
     rainAlertAudio.play().then(function () {
       lastRainAlertAt = Date.now();
-      updateRainAlertStatus("⚠ 時雨量達 40 mm 以上，提示音播放中");
+      updateRainAlertStatus("⚠ 時雨量達 40 mm 以上，提示音循環播放中");
     }).catch(function () {
       lastRainAlertAt = Date.now();
       updateRainAlertStatus("⚠ 時雨量達 40 mm 以上，但瀏覽器阻擋自動播放，請先按一次提示音測試");
@@ -148,6 +151,7 @@ function testok(){
 
   function checkRainAlertReminder() {
     if (!rainOverThreshold) return;
+    if (!rainAlertAudio.paused) return;
 
     var intervalMs = rainAlertIntervalMinutes * 60 * 1000;
     if (!lastRainAlertAt || Date.now() - lastRainAlertAt >= intervalMs) {
