@@ -134,6 +134,26 @@ function getRain() {
         }
       }
       for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
+        if(myJson.cwaopendata.dataset.Station[i].StationId=='C0AH50'){
+          var myresult = 
+          `
+          <tr>
+            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
+            <td>C0AH50</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
+            <td>A8長庚醫院站、A9林口站</td>
+          </tr>
+          
+          `;
+          document.getElementById("raintable").innerHTML += myresult;
+        }
+      }
+      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
         if(myJson.cwaopendata.dataset.Station[i].StationId=='C0C620'){
           var myresult = 
           `
@@ -175,6 +195,26 @@ function getRain() {
 
         }
       
+      }
+      for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
+        if(myJson.cwaopendata.dataset.Station[i].StationId=='C2C590'){
+          var myresult = 
+          `
+          <tr>
+            <td>${myJson.cwaopendata.dataset.Station[i].GeoInfo.CountyName}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].StationName}</td>
+            <td>C2C590</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past10Min.Precipitation}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past1hr.Precipitation}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past3hr.Precipitation}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past12hr.Precipitation}</td>
+            <td>${myJson.cwaopendata.dataset.Station[i].RainfallElement.Past24hr.Precipitation}</td>
+            <td>A15大園站、A16橫山站</td>
+          </tr>
+          
+          `;
+          document.getElementById("raintable").innerHTML += myresult;
+        }
       }
       for(var i =0;i< myJson.cwaopendata.dataset.Station.length;i++){
         if(myJson.cwaopendata.dataset.Station[i].StationId=='C0C700'){
